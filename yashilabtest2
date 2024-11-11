@@ -1,0 +1,37 @@
+import pandas as pd
+import numpy as np
+from pymongo import MongoClient
+from sklearn.svm import SVC
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('New Institutes.csv')
+client = MongoClient('mongodb://localhost:27017/')
+db = client['InstituteDB']
+collection = db['InstituteApplications']
+for index, row in df.iterrows():
+    document = row.to_dict()
+    collection.insert_one(document)
+    print("Missing values in each column are")
+    print(df.isnull().sum)
+    df['ColumnName']=df['ColumnName'].fillna(df['ColumnName'].median())
+    df['CategoricalColumn'] = df['CategoricalColumn'].fillna(df['CategoricalColumn'].mode()[0])
+    print("Missing values after substitution")
+    print(df.isnull().sum())
+    pipeline = [
+    {"$group": {"_id": "$State", "applications_count": {"$sum": 1}}},
+    {"$sort": {"applications_count": -1}}
+]
+result = list(collection.aggregate(pipeline))
+print("\nNumber of applications from each state are:")
+for r in result:
+    print(f"State: {r['_id']}, Applications: {r['applications_count']}")
+          
+plt.figure(figsize=(10, 6))
+sns.countplot(data=df, x='Region', hue='Program')
+plt.title('Relationship between Region and Program')
+plt.xlabel('Region')
+plt.ylabel('Count of Applications')
+plt.xticks(rotation=45)
+plt.show()
+          
